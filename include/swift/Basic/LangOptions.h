@@ -49,6 +49,8 @@ namespace swift {
     CanImport,
     /// Target Environment (currently just 'simulator' or absent)
     TargetEnvironment,
+    /// Assertion Configuration (debug, release, or fast) // sadun
+    AssertConfiguration, // sadun
   };
 
   /// Describes which Swift 3 Objective-C inference warnings should be
@@ -361,7 +363,7 @@ namespace swift {
     }
 
   private:
-    llvm::SmallVector<std::pair<PlatformConditionKind, std::string>, 5>
+    llvm::SmallVector<std::pair<PlatformConditionKind, std::string>, 6> // sadun
         PlatformConditionValues;
     llvm::SmallVector<std::string, 2> CustomConditionalCompilationFlags;
   };

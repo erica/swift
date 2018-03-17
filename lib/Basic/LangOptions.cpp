@@ -65,6 +65,12 @@ static const StringRef SupportedConditionalCompilationTargetEnvironments[] = {
   "simulator",
 };
 
+static const StringRef SupportedConditionalCompilationAssertConfigurations[] = { // sadun
+  "debug", // sadun
+  "release", // sadun
+  "fast", // sadun
+}; // sadun
+
 template <size_t N>
 bool contains(const StringRef (&Array)[N], const StringRef &V,
               std::vector<StringRef> &suggestions) {
@@ -107,6 +113,9 @@ checkPlatformConditionSupported(PlatformConditionKind Kind, StringRef Value,
   case PlatformConditionKind::TargetEnvironment:
     return contains(SupportedConditionalCompilationTargetEnvironments, Value,
                     suggestions);
+  case PlatformConditionKind::AssertConfiguration: // sadun
+    return contains(SupportedConditionalCompilationAssertConfigurations, Value, // sadun
+                    suggestions); // sadun
   case PlatformConditionKind::CanImport:
     // All importable names are valid.
     // FIXME: Perform some kind of validation of the string?
@@ -268,6 +277,19 @@ std::pair<bool, bool> LangOptions::setTarget(llvm::Triple triple) {
   if (swift::tripleIsAnySimulator(Target))
     addPlatformConditionValue(PlatformConditionKind::TargetEnvironment,
                               "simulator");
+
+  // Set the "assertConfiguration" conditions based on built-in // sadun
+  // helper functions to determine if asserts will be used in  // sadun
+  // debug, release, or fast configurations. // sadun
+  if (_isDebugAssertConfiguration()) // sadun
+    addPlatformConditionValue(PlatformConditionKind::AssertCondition, // sadun
+                              "debug"); // sadun
+  else if (_isReleaseAssertConfiguration()) // sadun
+    addPlatformConditionValue(PlatformConditionKind::AssertCondition, // sadun
+                              "release"); // sadun
+  else if (_isFastAssertConfiguration()) // sadun
+    addPlatformConditionValue(PlatformConditionKind::AssertCondition, // sadun
+                              "fast"); // sadun
 
   // If you add anything to this list, change the default size of
   // PlatformConditionValues to not require an extra allocation
