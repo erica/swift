@@ -97,6 +97,24 @@
 ///     print(shapePath)
 ///     // Prints "/images/default.png"
 ///
+/// Using the Unwap-or-Die Operator
+/// -------------------------------
+///
+/// When an optional can a priori be guaranteed to be non-nil,
+/// using guards, assertions, preconditions, etc, are
+/// heavy-handed approaches to document these established truths.
+/// When you already know that an array is not-empty, you should be able
+/// to specify this in a single line using a simple operator.
+/// The unwrap-or-die (`!!`) operator provides an auditable reasonable
+/// that establishes why an unconditional unwrap should never fail.
+///
+///     let array = [1, 2, 3]
+///     let lastItem = array.last !! "Array guaranteed to be non-empty because..."
+///
+/// This operator encourages a more controlled unwrapping approach than plain
+/// unconditional unwrapping, promotes documenting trapping during unwraps, and
+/// provides a succinct and easily-taught form for new Swift learners.
+///
 /// Unconditional Unwrapping
 /// ------------------------
 ///
@@ -691,6 +709,49 @@ public func ?? <T>(optional: T?, defaultValue: @autoclosure () throws -> T?)
     return try defaultValue()
   }
 }
+
+/// Performs a forced unwrap operation, returning
+/// the wrapped value of an `Optional` instance
+/// or performing a `fatalError` with the string
+/// on the rhs of the operator.
+///
+/// Forced unwrapping unwraps the left-hand side
+/// if it has a value or errors if it does not.
+/// The result of a successful operation will
+/// be the same type as the wrapped value of its
+/// left-hand side argument.
+///
+/// This operator uses short-circuit evaluation:
+/// The `optional` lhs is checked first, and the
+/// `fatalError` is called only if the left hand
+/// side is nil. For example:
+///
+///     guard !lastItem.isEmpty else { return }
+///     let lastItem = array.last !! "Array guaranteed to be non-empty because..."
+///
+///     let willFail = [].last !! "Array should have been guaranteed to be non-empty because..."
+///
+///
+/// In this example, `lastItem` is assigned the last value
+/// in `array` because the array is guaranteed to be non-empty.
+/// `willFail` is never assigned as the last item in an empty array is nil.
+///
+/// - Parameters:
+///   - optional: An optional value.
+///   - message: A message to emit via `fatalError` after
+///     failing to unwrap the optional.
+@_transparent
+public func !! <T>(optional: T?, reason: @autoclosure () throws -> String)
+  rethrows -> T {
+  switch optional {
+  case .some(let value):
+    return value
+  case .none:
+    let reasonString = try reason()
+    fatalError("Nil optional unwrapped with `!!`: " + reasonString)
+  }
+}
+
 
 //===----------------------------------------------------------------------===//
 // Bridging
