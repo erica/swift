@@ -1205,6 +1205,7 @@ namespace {
       case MagicIdentifierLiteralExpr::File:
       case MagicIdentifierLiteralExpr::Function:
       case MagicIdentifierLiteralExpr::Line:
+      case MagicIdentifierLiteralExpr::DogCow:
         return visitLiteralExpr(expr);
 
       case MagicIdentifierLiteralExpr::DSOHandle: {

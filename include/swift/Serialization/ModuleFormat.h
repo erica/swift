@@ -344,6 +344,7 @@ enum class DefaultArgumentKind : uint8_t {
   NilLiteral,
   EmptyArray,
   EmptyDictionary,
+  DogCow,
 };
 using DefaultArgumentField = BCFixed<4>;
 

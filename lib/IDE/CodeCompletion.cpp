@@ -2252,6 +2252,7 @@ public:
         case DefaultArgumentKind::Column:
         case DefaultArgumentKind::Function:
         case DefaultArgumentKind::DSOHandle:
+        case DefaultArgumentKind::DogCow:
           // Skip parameters that are defaulted to source location or other
           // caller context information.  Users typically don't want to specify
           // these parameters.
@@ -4916,6 +4917,7 @@ static void addExprKeywords(CodeCompletionResultSink &Sink) {
   AddKeyword("#line", "Int", CodeCompletionKeywordKind::pound_line);
   AddKeyword("#column", "Int", CodeCompletionKeywordKind::pound_column);
   AddKeyword("#dsohandle", "UnsafeMutableRawPointer", CodeCompletionKeywordKind::pound_dsohandle);
+  AddKeyword("#dogcow", "String", CodeCompletionKeywordKind::pound_dogcow);
 }
 
 static void addAnyTypeKeyword(CodeCompletionResultSink &Sink) {

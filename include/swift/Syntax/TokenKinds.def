@@ -261,6 +261,7 @@ POUND_KEYWORD(file)
 POUND_KEYWORD(column)
 POUND_KEYWORD(function)
 POUND_KEYWORD(dsohandle)
+POUND_KEYWORD(dogcow)
 
 // Directive '#' keywords.
 POUND_DIRECTIVE_KEYWORD(sourceLocation)

@@ -1085,6 +1085,8 @@ getMagicIdentifierLiteralKind(tok Kind) {
   case tok::kw___DSO_HANDLE__:
   case tok::pound_dsohandle:
     return MagicIdentifierLiteralExpr::Kind::DSOHandle;
+  case tok::pound_dogcow:
+    return MagicIdentifierLiteralExpr::Kind::DogCow;
 
   default:
     llvm_unreachable("not a magic literal");
@@ -1454,6 +1456,7 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
 ///     #column
 ///     #function
 ///     #dsohandle
+///     #dogcow
 ///
 ///   expr-delayed-identifier:
 ///     '.' identifier
@@ -1542,12 +1545,14 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
   case tok::pound_file:
   case tok::pound_function:
   case tok::pound_line:
+  case tok::pound_dogcow:
   case tok::pound_dsohandle: {
     SyntaxKind SKind = SyntaxKind::UnknownExpr;
     switch (Tok.getKind()) {
     case tok::pound_column: SKind = SyntaxKind::PoundColumnExpr; break;
     case tok::pound_file: SKind = SyntaxKind::PoundFileExpr; break;
     case tok::pound_function: SKind = SyntaxKind::PoundFunctionExpr; break;
+    case tok::pound_dogcow: SKind = SyntaxKind::PoundDogCowExpr; break;
     // FIXME: #line was renamed to #sourceLocation
     case tok::pound_line: SKind = SyntaxKind::PoundLineExpr; break;
     case tok::pound_dsohandle: SKind = SyntaxKind::PoundDsohandleExpr; break;

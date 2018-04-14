@@ -144,6 +144,7 @@ ProtocolDecl *TypeChecker::getLiteralProtocol(Expr *expr) {
     switch (E->getKind()) {
     case MagicIdentifierLiteralExpr::File:
     case MagicIdentifierLiteralExpr::Function:
+    case MagicIdentifierLiteralExpr::DogCow:
       return getProtocol(expr->getLoc(),
                          KnownProtocolKind::ExpressibleByStringLiteral);
 

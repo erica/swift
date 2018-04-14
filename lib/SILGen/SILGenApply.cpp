@@ -4627,6 +4627,14 @@ RValue SILGenFunction::emitLiteral(LiteralExpr *literal, SGFContext C) {
       break;
     }
 
+    case MagicIdentifierLiteralExpr::DogCow: {
+      StringRef value = "🐶🐮";
+      builtinLiteralArgs = emitStringLiteral(*this, literal, value, C, magicLiteral->getStringEncoding());
+      builtinInit = magicLiteral->getBuiltinInitializer();
+      init = magicLiteral->getInitializer();
+      break;
+    }
+
     case MagicIdentifierLiteralExpr::Line:
     case MagicIdentifierLiteralExpr::Column:
     case MagicIdentifierLiteralExpr::DSOHandle:

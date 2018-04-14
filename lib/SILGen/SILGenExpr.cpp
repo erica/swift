@@ -4191,6 +4191,7 @@ visitMagicIdentifierLiteralExpr(MagicIdentifierLiteralExpr *E, SGFContext C) {
   switch (E->getKind()) {
   case MagicIdentifierLiteralExpr::File:
   case MagicIdentifierLiteralExpr::Function:
+  case MagicIdentifierLiteralExpr::DogCow:
     return SGF.emitLiteral(E, C);
   case MagicIdentifierLiteralExpr::Line: {
     unsigned Value = 0;

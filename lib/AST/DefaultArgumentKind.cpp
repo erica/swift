@@ -30,6 +30,7 @@ StringRef swift::getDefaultArgumentSpelling(DefaultArgumentKind kind) {
   case DefaultArgumentKind::Column:    return "#column";
   case DefaultArgumentKind::Function:  return "#function";
   case DefaultArgumentKind::DSOHandle: return "#dsohandle";
+  case DefaultArgumentKind::DogCow:    return "#dogcow";
   case DefaultArgumentKind::NilLiteral: return "nil";
   case DefaultArgumentKind::EmptyArray: return "[]";
   case DefaultArgumentKind::EmptyDictionary: return "[:]";

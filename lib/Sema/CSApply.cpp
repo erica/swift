@@ -2426,6 +2426,7 @@ namespace {
       switch (expr->getKind()) {
       case MagicIdentifierLiteralExpr::File:
       case MagicIdentifierLiteralExpr::Function:
+      case MagicIdentifierLiteralExpr::DogCow:
         return handleStringLiteralExpr(expr);
 
       case MagicIdentifierLiteralExpr::Line:
@@ -5005,6 +5006,13 @@ getCallerDefaultArg(ConstraintSystem &cs, DeclContext *dc,
                               MagicIdentifierLiteralExpr::File, loc,
                               /*implicit=*/true);
     break;
+      
+    case DefaultArgumentKind::DogCow:
+      init = new (tc.Context) MagicIdentifierLiteralExpr(
+                                MagicIdentifierLiteralExpr::DogCow, loc,
+                                /*implicit=*/true);
+      break;
+
     
   case DefaultArgumentKind::Line:
     init = new (tc.Context) MagicIdentifierLiteralExpr(

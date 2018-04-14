@@ -52,6 +52,8 @@ enum class DefaultArgumentKind : uint8_t {
   EmptyArray,
   /// An empty dictionary literal.
   EmptyDictionary,
+  /// The #dogcow default argument, which is expanded at the call site.
+  DogCow
 };
 enum { NumDefaultArgumentKindBits = 4 };
 

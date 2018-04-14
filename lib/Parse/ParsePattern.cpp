@@ -51,6 +51,8 @@ static DefaultArgumentKind getDefaultArgKind(Expr *init) {
     return DefaultArgumentKind::Function;
   case MagicIdentifierLiteralExpr::DSOHandle:
     return DefaultArgumentKind::DSOHandle;
+  case MagicIdentifierLiteralExpr::DogCow:
+    return DefaultArgumentKind::DogCow;
   }
 
   llvm_unreachable("Unhandled MagicIdentifierLiteralExpr in switch.");

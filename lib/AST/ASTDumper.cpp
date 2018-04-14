@@ -278,6 +278,7 @@ static StringRef getDefaultArgumentKindString(DefaultArgumentKind value) {
   switch (value) {
     case DefaultArgumentKind::None: return "none";
     case DefaultArgumentKind::Column: return "#column";
+    case DefaultArgumentKind::DogCow: return "#dogcow";
     case DefaultArgumentKind::DSOHandle: return "#dsohandle";
     case DefaultArgumentKind::File: return "#file";
     case DefaultArgumentKind::Function: return "#function";
@@ -320,6 +321,7 @@ getMagicIdentifierLiteralExprKindString(MagicIdentifierLiteralExpr::Kind value) 
     case MagicIdentifierLiteralExpr::Function: return "#function";
     case MagicIdentifierLiteralExpr::Line: return "#line";
     case MagicIdentifierLiteralExpr::Column: return "#column";
+    case MagicIdentifierLiteralExpr::DogCow: return "#dogcow";
     case MagicIdentifierLiteralExpr::DSOHandle: return "#dsohandle";
   }
 

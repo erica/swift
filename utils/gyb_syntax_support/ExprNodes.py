@@ -138,6 +138,12 @@ EXPR_NODES = [
              Child('PoundDsohandle', kind='PoundDsohandleToken'),
          ]),
 
+   # A #dogcow expression.
+   Node('PoundDogCowExpr', kind='Expr',
+        children=[
+            Child('PoundDogCow', kind='PoundDogcowToken'),
+        ]),
+
     # symbolic-reference-expression -> identifier generic-argument-clause?
     Node('SymbolicReferenceExpr', kind='Expr',
          children=[

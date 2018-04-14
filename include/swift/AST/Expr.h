@@ -998,7 +998,7 @@ public:
 class MagicIdentifierLiteralExpr : public LiteralExpr {
 public:
   enum Kind : unsigned {
-    File, Line, Column, Function, DSOHandle
+    File, Line, Column, Function, DSOHandle, DogCow
   };
 private:
   SourceLoc Loc;
@@ -1026,6 +1026,7 @@ public:
     switch (getKind()) {
     case File:
     case Function:
+    case DogCow: 
       return true;
     case Line:
     case Column:
