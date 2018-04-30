@@ -19,7 +19,6 @@
 
 #include "swift/AST/ASTContext.h"
 #include "swift/AST/Builtins.h"
-#include "swift/AST/Module.h"
 #include "swift/AST/SILLayout.h"
 #include "swift/AST/SILOptions.h"
 #include "swift/Basic/LangOptions.h"
@@ -58,8 +57,10 @@ class Output;
 namespace swift {
   class AnyFunctionType;
   class ASTContext;
+  class FileUnit;
   class FuncDecl;
   class KeyPathPattern;
+  class ModuleDecl;
   class SILUndef;
   class SourceFile;
   class SerializedSILLoader;
@@ -110,7 +111,15 @@ public:
   using DefaultWitnessTableListType = llvm::ilist<SILDefaultWitnessTable>;
   using CoverageMapCollectionType =
       llvm::MapVector<StringRef, SILCoverageMap *>;
-  using LinkingMode = SILOptions::LinkingMode;
+
+  enum class LinkingMode : uint8_t {
+    /// Link functions with non-public linkage. Used by the mandatory pipeline.
+    LinkNormal,
+
+    /// Link all functions. Used by the performance pipeine.
+    LinkAll
+  };
+
   using ActionCallback = std::function<void()>;
 
 private:
@@ -337,15 +346,12 @@ public:
   /// later parse SIL bodies directly into, without converting from an AST.
   static std::unique_ptr<SILModule>
   createEmptyModule(ModuleDecl *M, SILOptions &Options,
-                    bool WholeModule = false) {
-    return std::unique_ptr<SILModule>(
-        new SILModule(M, Options, M, WholeModule));
-  }
+                    bool WholeModule = false);
 
   /// Get the Swift module associated with this SIL module.
   ModuleDecl *getSwiftModule() const { return TheSwiftModule; }
   /// Get the AST context used for type uniquing etc. by this SIL module.
-  ASTContext &getASTContext() const { return TheSwiftModule->getASTContext(); }
+  ASTContext &getASTContext() const;
   SourceManager &getSourceManager() const { return getASTContext().SourceMgr; }
 
   /// Get the Swift DeclContext associated with this SIL module.
@@ -499,7 +505,7 @@ public:
   ///
   /// \return false if the linking failed.
   bool linkFunction(SILFunction *F,
-                    LinkingMode LinkAll = LinkingMode::LinkNormal);
+                    LinkingMode LinkMode = LinkingMode::LinkNormal);
 
   /// Check if a given function exists in any of the modules with a
   /// required linkage, i.e. it can be linked by linkFunction.

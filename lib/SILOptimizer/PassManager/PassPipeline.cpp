@@ -88,6 +88,7 @@ static void addMandatoryOptPipeline(SILPassPipelinePlan &P,
   P.addNoReturnFolding();
   P.addMarkUninitializedFixup();
   P.addDefiniteInitialization();
+  P.addClosureLifetimeFixup();
   P.addOwnershipModelEliminator();
   P.addMandatoryInlining();
   P.addMandatorySILLinker();
@@ -222,6 +223,10 @@ void addSSAPasses(SILPassPipelinePlan &P, OptimizationLevelKind OpLevel) {
 
   // Split up operations on stack-allocated aggregates (struct, tuple).
   P.addSROA();
+
+  // Re-run predictable memory optimizations, since previous optimization
+  // passes sometimes expose oppotunities here.
+  P.addPredictableMemoryOptimizations();
 
   // Promote stack allocations to values.
   P.addMem2Reg();
@@ -457,7 +462,7 @@ SILPassPipelinePlan
 SILPassPipelinePlan::getLoweringPassPipeline() {
   SILPassPipelinePlan P;
   P.startPipeline("Address Lowering");
-  P.addSILCleanup();
+  P.addIRGenPrepare();
   P.addAddressLowering();
 
   return P;

@@ -13,7 +13,6 @@
 #ifndef SWIFT_FRONTEND_FRONTENDOPTIONS_H
 #define SWIFT_FRONTEND_FRONTENDOPTIONS_H
 
-#include "swift/AST/Module.h"
 #include "swift/Frontend/FrontendInputsAndOutputs.h"
 #include "swift/Frontend/InputFile.h"
 #include "llvm/ADT/Hashing.h"
@@ -296,7 +295,7 @@ public:
   static bool doesActionProduceOutput(ActionType);
   static bool doesActionProduceTextualOutput(ActionType);
   static bool needsProperModuleName(ActionType);
-  static const char *suffixForPrincipalOutputFileForAction(ActionType);
+  static StringRef suffixForPrincipalOutputFileForAction(ActionType);
 };
 
 }

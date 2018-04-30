@@ -1219,7 +1219,7 @@ namespace {
       SmallVector<Space, 4> spaces;
       for (auto *caseBlock : Switch->getCases()) {
         if (caseBlock->hasUnknownAttr()) {
-          assert(unknownCase == nullptr);
+          assert(unknownCase == nullptr && "multiple unknown cases");
           unknownCase = caseBlock;
           continue;
         }
@@ -1345,10 +1345,25 @@ namespace {
 
       // Decide whether we want an error or a warning.
       auto mainDiagType = diag::non_exhaustive_switch;
-      if (!uncovered.isEmpty() && unknownCase) {
-        assert(defaultReason == RequiresDefault::No);
-        mainDiagType = diag::non_exhaustive_switch_warn;
+      if (unknownCase) {
+        switch (defaultReason) {
+        case RequiresDefault::EmptySwitchBody:
+          llvm_unreachable("there's an @unknown case; the body can't be empty");
+        case RequiresDefault::No:
+          if (!uncovered.isEmpty())
+            mainDiagType = diag::non_exhaustive_switch_warn;
+          break;
+        case RequiresDefault::UncoveredSwitch:
+        case RequiresDefault::SpaceTooLarge:
+          TC.diagnose(startLoc, diag::non_exhaustive_switch);
+          TC.diagnose(unknownCase->getLoc(),
+                      diag::non_exhaustive_switch_drop_unknown)
+            .fixItRemoveChars(unknownCase->getStartLoc(),
+                              unknownCase->getLoc());
+          return;
+        }
       }
+
       switch (uncovered.checkDowngradeToWarning()) {
       case DowngradeToWarning::No:
         break;
@@ -1366,10 +1381,8 @@ namespace {
           // playgrounds.
           return;
         }
-        if (!TC.Context.isSwiftVersionAtLeast(5)) {
-          // Downgrade missing '@unknown' to a warning in Swift 4 and below.
-          mainDiagType = diag::non_exhaustive_switch_warn;
-        }
+        // Missing '@unknown' is just a warning.
+        mainDiagType = diag::non_exhaustive_switch_warn;
         break;
       }
 
@@ -1637,13 +1650,24 @@ namespace {
         switch (IP->getCastKind()) {
         case CheckedCastKind::Coercion:
         case CheckedCastKind::BridgingCoercion: {
-          auto *subPattern = IP->getSubPattern();
-          if (subPattern)
-            return projectPattern(TC, subPattern, sawDowngradablePattern);
+          if (auto *subPattern = IP->getSubPattern()) {
+            // Project the cast target's subpattern.
+            Space castSubSpace = projectPattern(TC, subPattern,
+                                                sawDowngradablePattern);
+            // If we recieved a type space from a named pattern or a wildcard
+            // we have to re-project with the cast's target type to maintain
+            // consistency with the scrutinee's type.
+            if (castSubSpace.getKind() == SpaceKind::Type) {
 
-          // With no subpattern coercions are irrefutable.  Project with the original
-          // type instead of the cast's target type to maintain consistency with the
-          // scrutinee's type.
+              return Space::forType(IP->getType(),
+                                    castSubSpace.getPrintingName());
+            }
+            return castSubSpace;
+          }
+
+          // With no subpattern coercions are irrefutable.  Project with the
+          // original type instead of the cast's target type to maintain
+          // consistency with the scrutinee's type.
           return Space::forType(IP->getType(), Identifier());
         }
         case CheckedCastKind::Unresolved:
@@ -1724,8 +1748,7 @@ namespace {
           //
           // FIXME: SE-0155 makes this case unreachable.
           if (SP->getKind() == PatternKind::Named
-              || SP->getKind() == PatternKind::Any
-              || SP->getKind() == PatternKind::Tuple) {
+              || SP->getKind() == PatternKind::Any) {
             if (auto *TTy = SP->getType()->getAs<TupleType>()) {
               for (auto ty : TTy->getElements()) {
                 conArgSpace.push_back(Space::forType(ty.getType(),
@@ -1735,6 +1758,13 @@ namespace {
               conArgSpace.push_back(projectPattern(TC, SP,
                                                    sawDowngradablePattern));
             }
+          } else if (SP->getKind() == PatternKind::Tuple) {
+            Space argTupleSpace = projectPattern(TC, SP,
+                                                 sawDowngradablePattern);
+            assert(argTupleSpace.getKind() == SpaceKind::Constructor);
+            conArgSpace.insert(conArgSpace.end(),
+                               argTupleSpace.getSpaces().begin(),
+                               argTupleSpace.getSpaces().end());
           } else {
             conArgSpace.push_back(projectPattern(TC, SP,
                                                  sawDowngradablePattern));

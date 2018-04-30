@@ -227,12 +227,12 @@ function(_add_variant_c_compile_flags)
     if(NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC")
       list(APPEND result -Xclang;--dependent-lib=oldnames)
       # TODO(compnerd) handle /MT, /MTd, /MD, /MDd
-      if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-        list(APPEND result "-D_MD")
-        list(APPEND result -Xclang;--dependent-lib=msvcrt)
-      else()
+      if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
         list(APPEND result "-D_MDd")
         list(APPEND result -Xclang;--dependent-lib=msvcrtd)
+      else()
+        list(APPEND result "-D_MD")
+        list(APPEND result -Xclang;--dependent-lib=msvcrt)
       endif()
     endif()
 
@@ -303,7 +303,7 @@ function(_add_variant_swift_compile_flags
   set(result ${${result_var_name}})
 
   # On Windows, we don't set SWIFT_SDK_WINDOWS_PATH_ARCH_{ARCH}_PATH, so don't include it.
-  if (NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
+  if (NOT "${sdk}" STREQUAL "WINDOWS")
     list(APPEND result "-sdk" "${SWIFT_SDK_${sdk}_ARCH_${arch}_PATH}")
   endif()
 
@@ -425,7 +425,7 @@ function(_add_variant_link_flags)
     list(APPEND library_search_directories "${SWIFT_${sdk}_${arch}_ICU_UC_LIBDIR}")
   endif()
   if(NOT "${SWIFT_${LFLAGS_SDK}_${LFLAGS_ARCH}_ICU_I18N}" STREQUAL "")
-    get_filename_component(SWIFT_${sdk}_${arch}_ICU_I18N_LIBDIR "${SWIFT_${sdk}_${arch}_IC_I18N}" DIRECTORY)
+    get_filename_component(SWIFT_${sdk}_${arch}_ICU_I18N_LIBDIR "${SWIFT_${sdk}_${arch}_ICU_I18N}" DIRECTORY)
     list(APPEND library_search_directories "${SWIFT_${sdk}_${arch}_ICU_I18N_LIBDIR}")
   endif()
 
@@ -644,15 +644,47 @@ endfunction()
 #   Sources to add into this library
 function(_add_swift_library_single target name)
   set(SWIFTLIB_SINGLE_options
-      SHARED STATIC OBJECT_LIBRARY IS_STDLIB IS_STDLIB_CORE IS_SDK_OVERLAY
-      TARGET_LIBRARY FORCE_BUILD_FOR_HOST_SDK
-      API_NOTES_NON_OVERLAY DONT_EMBED_BITCODE FORCE_BUILD_OPTIMIZED NOSWIFTRT)
-  cmake_parse_arguments(SWIFTLIB_SINGLE
-    "${SWIFTLIB_SINGLE_options}"
-    "MODULE_TARGET;SDK;ARCHITECTURE;INSTALL_IN_COMPONENT;DEPLOYMENT_VERSION_OSX;DEPLOYMENT_VERSION_IOS;DEPLOYMENT_VERSION_TVOS;DEPLOYMENT_VERSION_WATCHOS"
-    "DEPENDS;LINK_LIBRARIES;FRAMEWORK_DEPENDS;FRAMEWORK_DEPENDS_WEAK;LLVM_COMPONENT_DEPENDS;C_COMPILE_FLAGS;SWIFT_COMPILE_FLAGS;LINK_FLAGS;PRIVATE_LINK_LIBRARIES;INTERFACE_LINK_LIBRARIES;INCORPORATE_OBJECT_LIBRARIES;INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY;FILE_DEPENDS"
-    ${ARGN})
+        API_NOTES_NON_OVERLAY
+        DONT_EMBED_BITCODE
+        FORCE_BUILD_FOR_HOST_SDK
+        FORCE_BUILD_OPTIMIZED
+        IS_SDK_OVERLAY
+        IS_STDLIB
+        IS_STDLIB_CORE
+        NOSWIFTRT
+        OBJECT_LIBRARY
+        SHARED
+        STATIC
+        TARGET_LIBRARY)
+  set(SWIFTLIB_SINGLE_single_parameter_options
+        ARCHITECTURE
+        DEPLOYMENT_VERSION_IOS
+        DEPLOYMENT_VERSION_OSX
+        DEPLOYMENT_VERSION_TVOS
+        DEPLOYMENT_VERSION_WATCHOS
+        INSTALL_IN_COMPONENT
+        MODULE_TARGET
+        SDK)
+  set(SWIFTLIB_SINGLE_multiple_parameter_options
+        C_COMPILE_FLAGS
+        DEPENDS
+        FILE_DEPENDS
+        FRAMEWORK_DEPENDS
+        FRAMEWORK_DEPENDS_WEAK
+        INCORPORATE_OBJECT_LIBRARIES
+        INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY
+        INTERFACE_LINK_LIBRARIES
+        LINK_FLAGS
+        LINK_LIBRARIES
+        LLVM_COMPONENT_DEPENDS
+        PRIVATE_LINK_LIBRARIES
+        SWIFT_COMPILE_FLAGS)
 
+  cmake_parse_arguments(SWIFTLIB_SINGLE
+                        "${SWIFTLIB_SINGLE_options}"
+                        "${SWIFTLIB_SINGLE_single_parameter_options}"
+                        "${SWIFTLIB_SINGLE_multiple_parameter_options}"
+                        ${ARGN})
   set(SWIFTLIB_SINGLE_SOURCES ${SWIFTLIB_SINGLE_UNPARSED_ARGUMENTS})
 
   translate_flags(SWIFTLIB_SINGLE "${SWIFTLIB_SINGLE_options}")
@@ -760,6 +792,7 @@ function(_add_swift_library_single target name)
     swift_windows_generate_sdk_vfs_overlay(SWIFTLIB_SINGLE_VFS_OVERLAY_FLAGS)
     foreach(flag ${SWIFTLIB_SINGLE_VFS_OVERLAY_FLAGS})
       list(APPEND SWIFTLIB_SINGLE_SWIFT_COMPILE_FLAGS -Xcc;${flag})
+      list(APPEND SWIFTLIB_SINGLE_C_COMPILE_FLAGS ${flag})
     endforeach()
     foreach(directory ${SWIFTLIB_INCLUDE})
       list(APPEND SWIFTLIB_SINGLE_SWIFT_COMPILE_FLAGS -Xfrontend;-I${directory})
@@ -1396,15 +1429,61 @@ endfunction()
 #   Sources to add into this library.
 function(add_swift_library name)
   set(SWIFTLIB_options
-      SHARED STATIC OBJECT_LIBRARY IS_STDLIB IS_STDLIB_CORE IS_SDK_OVERLAY
-      TARGET_LIBRARY FORCE_BUILD_FOR_HOST_SDK
-      API_NOTES_NON_OVERLAY DONT_EMBED_BITCODE HAS_SWIFT_CONTENT
-      FORCE_BUILD_OPTIMIZED NOSWIFTRT)
+        API_NOTES_NON_OVERLAY
+        DONT_EMBED_BITCODE
+        FORCE_BUILD_FOR_HOST_SDK
+        FORCE_BUILD_OPTIMIZED
+        HAS_SWIFT_CONTENT
+        IS_SDK_OVERLAY
+        IS_STDLIB
+        IS_STDLIB_CORE
+        NOSWIFTRT
+        OBJECT_LIBRARY
+        SHARED
+        STATIC
+        TARGET_LIBRARY)
+  set(SWIFTLIB_single_parameter_options
+        DEPLOYMENT_VERSION_IOS
+        DEPLOYMENT_VERSION_OSX
+        DEPLOYMENT_VERSION_TVOS
+        DEPLOYMENT_VERSION_WATCHOS
+        INSTALL_IN_COMPONENT)
+  set(SWIFTLIB_multiple_parameter_options
+        C_COMPILE_FLAGS
+        DEPENDS
+        FILE_DEPENDS
+        FRAMEWORK_DEPENDS
+        FRAMEWORK_DEPENDS_IOS_TVOS
+        FRAMEWORK_DEPENDS_OSX
+        FRAMEWORK_DEPENDS_WEAK
+        INCORPORATE_OBJECT_LIBRARIES
+        INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY
+        INTERFACE_LINK_LIBRARIES
+        LINK_FLAGS
+        LINK_LIBRARIES
+        LLVM_COMPONENT_DEPENDS
+        PRIVATE_LINK_LIBRARIES
+        SWIFT_COMPILE_FLAGS
+        SWIFT_COMPILE_FLAGS_IOS
+        SWIFT_COMPILE_FLAGS_OSX
+        SWIFT_COMPILE_FLAGS_TVOS
+        SWIFT_COMPILE_FLAGS_WATCHOS
+        SWIFT_MODULE_DEPENDS
+        SWIFT_MODULE_DEPENDS_CYGWIN
+        SWIFT_MODULE_DEPENDS_FREEBSD
+        SWIFT_MODULE_DEPENDS_HAIKU
+        SWIFT_MODULE_DEPENDS_IOS
+        SWIFT_MODULE_DEPENDS_LINUX
+        SWIFT_MODULE_DEPENDS_OSX
+        SWIFT_MODULE_DEPENDS_TVOS
+        SWIFT_MODULE_DEPENDS_WATCHOS
+        TARGET_SDKS)
+
   cmake_parse_arguments(SWIFTLIB
-    "${SWIFTLIB_options}"
-    "INSTALL_IN_COMPONENT;DEPLOYMENT_VERSION_OSX;DEPLOYMENT_VERSION_IOS;DEPLOYMENT_VERSION_TVOS;DEPLOYMENT_VERSION_WATCHOS"
-    "DEPENDS;LINK_LIBRARIES;SWIFT_MODULE_DEPENDS;SWIFT_MODULE_DEPENDS_OSX;SWIFT_MODULE_DEPENDS_IOS;SWIFT_MODULE_DEPENDS_TVOS;SWIFT_MODULE_DEPENDS_WATCHOS;SWIFT_MODULE_DEPENDS_FREEBSD;SWIFT_MODULE_DEPENDS_LINUX;SWIFT_MODULE_DEPENDS_CYGWIN;SWIFT_MODULE_DEPENDS_HAIKU;FRAMEWORK_DEPENDS;FRAMEWORK_DEPENDS_WEAK;FRAMEWORK_DEPENDS_OSX;FRAMEWORK_DEPENDS_IOS_TVOS;LLVM_COMPONENT_DEPENDS;FILE_DEPENDS;TARGET_SDKS;C_COMPILE_FLAGS;SWIFT_COMPILE_FLAGS;SWIFT_COMPILE_FLAGS_OSX;SWIFT_COMPILE_FLAGS_IOS;SWIFT_COMPILE_FLAGS_TVOS;SWIFT_COMPILE_FLAGS_WATCHOS;LINK_FLAGS;PRIVATE_LINK_LIBRARIES;INTERFACE_LINK_LIBRARIES;INCORPORATE_OBJECT_LIBRARIES;INCORPORATE_OBJECT_LIBRARIES_SHARED_ONLY"
-    ${ARGN})
+                        "${SWIFTLIB_options}"
+                        "${SWIFTLIB_single_parameter_options}"
+                        "${SWIFTLIB_multiple_parameter_options}"
+                        ${ARGN})
   set(SWIFTLIB_SOURCES ${SWIFTLIB_UNPARSED_ARGUMENTS})
 
   # Infer arguments.
@@ -1639,6 +1718,19 @@ function(add_swift_library name)
            message("DISABLING AUTOLINK FOR swiftMediaPlayer")
            list(APPEND swiftlib_link_flags_all "-Xlinker" "-ignore_auto_link")
          endif()
+       endif()
+
+       # We unconditionally removed "-z,defs" from CMAKE_SHARED_LINKER_FLAGS in 
+       # swift_common_standalone_build_config_llvm within SwiftSharedCMakeConfig.cmake,
+       # where it was added by a call to HandleLLVMOptions. 
+       #
+       # Rather than applying it to all targets and libraries, we here add it back to 
+       # supported targets and libraries only. 
+       # This is needed for ELF targets only; however, RemoteMirror needs to build 
+       # with undefined symbols.
+       if("${SWIFT_SDK_${LFLAGS_SDK}_OBJECT_FORMAT}" STREQUAL "ELF" 
+          AND NOT "${name}" STREQUAL "swiftRemoteMirror")
+          list(APPEND swiftlib_link_flags_all "-Wl,-z,defs")
        endif()
 
         # Add this library variant.

@@ -29,6 +29,7 @@
 #include "swift/SIL/PrettyStackTrace.h"
 #include "swift/SIL/SILArgument.h"
 #include "swift/SIL/SILDebugScope.h"
+#include "swift/SIL/SILProfiler.h"
 #include "swift/Subsystems.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/Debug.h"
@@ -488,6 +489,29 @@ static bool haveProfiledAssociatedFunction(SILDeclRef constant) {
          constant.isCurried;
 }
 
+SILProfiler *
+SILGenModule::getOrCreateProfilerForConstructors(DeclContext *ctx,
+                                                 ConstructorDecl *cd) {
+  const auto &Opts = M.getOptions();
+  if (!Opts.GenerateProfile && Opts.UseProfile.empty())
+    return nullptr;
+
+  // Profile nominal types and extensions separately, as they may live in
+  // distinct files. For extensions, just pass in the constructor, because
+  // there are no stored property initializers to visit.
+  Decl *decl = nullptr;
+  if (ctx->isExtensionContext())
+    decl = cd;
+  else
+    decl = ctx->getAsNominalTypeOrNominalTypeExtensionContext();
+  assert(decl && "No decl available for profiling in this context");
+
+  SILProfiler *&profiler = constructorProfilers[decl];
+  if (!profiler)
+    profiler = SILProfiler::create(M, ForDefinition, decl);
+  return profiler;
+}
+
 SILFunction *SILGenModule::getFunction(SILDeclRef constant,
                                        ForDefinition_t forDefinition) {
   // If we already emitted the function, return it (potentially preparing it
@@ -737,42 +761,45 @@ void SILGenModule::emitConstructor(ConstructorDecl *decl) {
     return;
 
   SILDeclRef constant(decl);
+  DeclContext *declCtx = decl->getDeclContext();
 
   bool ForCoverageMapping = doesASTRequireProfiling(M, decl);
 
-  if (decl->getDeclContext()->getAsClassOrClassExtensionContext()) {
+  if (declCtx->getAsClassOrClassExtensionContext()) {
     // Class constructors have separate entry points for allocation and
     // initialization.
     emitOrDelayFunction(
-        *this, constant,
-        [this, constant, decl](SILFunction *f) {
+        *this, constant, [this, constant, decl](SILFunction *f) {
           preEmitFunction(constant, decl, f, decl);
           PrettyStackTraceSILFunction X("silgen emitConstructor", f);
-          f->createProfiler(decl, ForDefinition);
           SILGenFunction(*this, *f).emitClassConstructorAllocator(decl);
           postEmitFunction(constant, f);
-        },
-        /*forceEmission=*/ForCoverageMapping);
+        });
 
     // If this constructor was imported, we don't need the initializing
     // constructor to be emitted.
     if (!decl->hasClangNode()) {
       SILDeclRef initConstant(decl, SILDeclRef::Kind::Initializer);
-      emitOrDelayFunction(*this, initConstant,
-                          [this,initConstant,decl](SILFunction *initF){
-        preEmitFunction(initConstant, decl, initF, decl);
-        PrettyStackTraceSILFunction X("silgen constructor initializer", initF);
-        SILGenFunction(*this, *initF).emitClassConstructorInitializer(decl);
-        postEmitFunction(initConstant, initF);
-      });
+      emitOrDelayFunction(
+          *this, initConstant,
+          [this, initConstant, decl, declCtx](SILFunction *initF) {
+            preEmitFunction(initConstant, decl, initF, decl);
+            PrettyStackTraceSILFunction X("silgen constructor initializer",
+                                          initF);
+            initF->setProfiler(
+                getOrCreateProfilerForConstructors(declCtx, decl));
+            SILGenFunction(*this, *initF).emitClassConstructorInitializer(decl);
+            postEmitFunction(initConstant, initF);
+          },
+          /*forceEmission=*/ForCoverageMapping);
     }
   } else {
     // Struct and enum constructors do everything in a single function.
     emitOrDelayFunction(
-        *this, constant, [this, constant, decl](SILFunction *f) {
+        *this, constant, [this, constant, decl, declCtx](SILFunction *f) {
           preEmitFunction(constant, decl, f, decl);
           PrettyStackTraceSILFunction X("silgen emitConstructor", f);
-          f->createProfiler(decl, ForDefinition);
+          f->setProfiler(getOrCreateProfilerForConstructors(declCtx, decl));
           SILGenFunction(*this, *f).emitValueConstructor(decl);
           postEmitFunction(constant, f);
         });
@@ -976,9 +1003,14 @@ emitStoredPropertyInitialization(PatternBindingDecl *pbd, unsigned i) {
   auto *init = pbdEntry.getInit();
 
   SILDeclRef constant(var, SILDeclRef::Kind::StoredPropertyInitializer);
-  emitOrDelayFunction(*this, constant, [this,constant,init](SILFunction *f) {
+  emitOrDelayFunction(*this, constant, [this,constant,init,var](SILFunction *f) {
     preEmitFunction(constant, init, f, init);
     PrettyStackTraceSILFunction X("silgen emitStoredPropertyInitialization", f);
+
+    // Inherit a profiler instance from the constructor.
+    f->setProfiler(
+        getOrCreateProfilerForConstructors(var->getDeclContext(), nullptr));
+
     SILGenFunction(*this, *f).emitGeneratorFunction(constant, init);
     postEmitFunction(constant, f);
   });

@@ -296,6 +296,17 @@ llvm::raw_ostream &swift::operator<<(llvm::raw_ostream &OS,
   llvm_unreachable("bad StaticSpellingKind");
 }
 
+llvm::raw_ostream &swift::operator<<(llvm::raw_ostream &OS,
+                                     ReferenceOwnership RO) {
+  switch (RO) {
+  case ReferenceOwnership::Strong: return OS << "'strong'";
+  case ReferenceOwnership::Weak: return OS << "'weak'";
+  case ReferenceOwnership::Unowned: return OS << "'unowned'";
+  case ReferenceOwnership::Unmanaged: return OS << "'unowned(unsafe)'";
+  }
+  llvm_unreachable("bad ReferenceOwnership kind");
+}
+
 DeclContext *Decl::getInnermostDeclContext() const {
   if (auto func = dyn_cast<AbstractFunctionDecl>(this))
     return const_cast<AbstractFunctionDecl*>(func);
@@ -2259,15 +2270,31 @@ ValueDecl::getFormalAccessScope(const DeclContext *useDC,
   llvm_unreachable("unknown access level");
 }
 
-void ValueDecl::copyFormalAccessFrom(ValueDecl *source) {
+void ValueDecl::copyFormalAccessFrom(const ValueDecl *source,
+                                     bool sourceIsParentContext) {
   if (!hasAccess()) {
-    setAccess(source->getFormalAccess());
+    AccessLevel access = source->getFormalAccess();
+
+    // To make something have the same access as a 'private' parent, it has to
+    // be 'fileprivate' or greater.
+    if (sourceIsParentContext && access == AccessLevel::Private)
+      access = AccessLevel::FilePrivate;
+
+    // Only certain declarations can be 'open'.
+    if (access == AccessLevel::Open && !isPotentiallyOverridable()) {
+      assert(!isa<ClassDecl>(this) &&
+             "copying 'open' onto a class has complications");
+      access = AccessLevel::Public;
+    }
+
+    setAccess(access);
   }
 
   // Inherit the @usableFromInline attribute.
   if (source->getAttrs().hasAttribute<UsableFromInlineAttr>() &&
       !getAttrs().hasAttribute<UsableFromInlineAttr>() &&
-      !getAttrs().hasAttribute<InlinableAttr>()) {
+      !getAttrs().hasAttribute<InlinableAttr>() &&
+      DeclAttribute::canAttributeAppearOnDecl(DAK_UsableFromInline, this)) {
     auto &ctx = getASTContext();
     auto *clonedAttr = new (ctx) UsableFromInlineAttr(/*implicit=*/true);
     getAttrs().add(clonedAttr);
@@ -2816,7 +2843,7 @@ void ClassDecl::addImplicitDestructor() {
   setHasDestructor();
 
   // Propagate access control and versioned-ness.
-  DD->copyFormalAccessFrom(this);
+  DD->copyFormalAccessFrom(this, /*sourceIsParentContext*/true);
 
   // Wire up generic environment of DD.
   DD->setGenericEnvironment(getGenericEnvironmentOfContext());

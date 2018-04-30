@@ -367,7 +367,7 @@ protected:
     DefaultArgumentResilienceExpansion : 1
   );
   
-  SWIFT_INLINE_BITFIELD(AbstractFunctionDecl, ValueDecl, 3+8+5+1+1+1+1+1,
+  SWIFT_INLINE_BITFIELD(AbstractFunctionDecl, ValueDecl, 3+8+5+1+1+1+1+1+1,
     /// \see AbstractFunctionDecl::BodyKind
     BodyKind : 3,
 
@@ -390,7 +390,11 @@ protected:
     HasComputedNeedsNewVTableEntry : 1,
 
     /// The ResilienceExpansion to use for default arguments.
-    DefaultArgumentResilienceExpansion : 1
+    DefaultArgumentResilienceExpansion : 1,
+
+    /// Whether this member was synthesized as part of a derived
+    /// protocol conformance.
+    Synthesized : 1
   );
 
   SWIFT_INLINE_BITFIELD(FuncDecl, AbstractFunctionDecl, 1+2+1+1+2,
@@ -2304,8 +2308,14 @@ public:
                        bool treatUsableFromInlineAsPublic = false) const;
 
 
-  /// Copy the formal access level and @usableFromInline attribute from source.
-  void copyFormalAccessFrom(ValueDecl *source);
+  /// Copy the formal access level and @usableFromInline attribute from
+  /// \p source.
+  ///
+  /// If \p sourceIsParentContext is true, an access level of \c private will
+  /// be copied as \c fileprivate, to ensure that this declaration will be
+  /// available everywhere \p source is.
+  void copyFormalAccessFrom(const ValueDecl *source,
+                            bool sourceIsParentContext = false);
 
   /// Returns the access level that actually controls how a declaration should
   /// be emitted and may be used.
@@ -5099,6 +5109,7 @@ protected:
     Bits.AbstractFunctionDecl.HasComputedNeedsNewVTableEntry = false;
     Bits.AbstractFunctionDecl.DefaultArgumentResilienceExpansion =
         unsigned(ResilienceExpansion::Maximal);
+    Bits.AbstractFunctionDecl.Synthesized = false;
 
     // Verify no bitfield truncation.
     assert(Bits.AbstractFunctionDecl.NumParameterLists == NumParameterLists);
@@ -5245,6 +5256,14 @@ public:
     if (!Bits.AbstractFunctionDecl.HasComputedNeedsNewVTableEntry)
       const_cast<AbstractFunctionDecl *>(this)->computeNeedsNewVTableEntry();
     return Bits.AbstractFunctionDecl.NeedsNewVTableEntry;
+  }
+
+  bool isSynthesized() const {
+    return Bits.AbstractFunctionDecl.Synthesized;
+  }
+
+  void setSynthesized(bool value = true) {
+    Bits.AbstractFunctionDecl.Synthesized = value;
   }
 
 private:
@@ -6697,7 +6716,8 @@ inline bool ValueDecl::isImportAsMember() const {
 inline bool Decl::isPotentiallyOverridable() const {
   if (isa<VarDecl>(this) ||
       isa<SubscriptDecl>(this) ||
-      isa<FuncDecl>(this)) {
+      isa<FuncDecl>(this) ||
+      isa<DestructorDecl>(this)) {
     return getDeclContext()->getAsClassOrClassExtensionContext();
   } else {
     return false;

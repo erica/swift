@@ -1436,6 +1436,7 @@ public:
   }
   void visitConvertEscapeToNoEscapeInst(ConvertEscapeToNoEscapeInst *CI) {
     *this << (CI->isLifetimeGuaranteed() ? "" : "[not_guaranteed] ")
+          << (CI->isEscapedByUser() ? "[escaped] " : "")
           << getIDAndType(CI->getOperand()) << " to " << CI->getType();
   }
   void visitThinFunctionToPointerInst(ThinFunctionToPointerInst *CI) {
@@ -2215,6 +2216,14 @@ void SILBasicBlock::dump() const {
 /// Pretty-print the SILBasicBlock to the designated stream.
 void SILBasicBlock::print(raw_ostream &OS) const {
   SILPrintContext Ctx(OS);
+
+  // Print the debug scope (and compute if we didn't do it already).
+  auto &SM = this->getParent()->getModule().getASTContext().SourceMgr;
+  for (auto &I : *this) {
+    SILPrinter P(Ctx);
+    P.printDebugScope(I.getDebugScope(), SM);
+  }
+
   SILPrinter(Ctx).print(this);
 }
 
@@ -2681,7 +2690,7 @@ void SILModule::print(SILPrintContext &PrintCtx, ModuleDecl *M,
       if (!WholeModuleMode && !(D->getDeclContext() == AssociatedDeclContext))
           continue;
       if ((isa<ValueDecl>(D) || isa<OperatorDecl>(D) ||
-           isa<ExtensionDecl>(D)) &&
+           isa<ExtensionDecl>(D) || isa<ImportDecl>(D)) &&
           !D->isImplicit()) {
         if (isa<AccessorDecl>(D))
           continue;

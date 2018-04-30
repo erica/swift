@@ -1495,15 +1495,21 @@ checkIndividualConformance(NormalProtocolConformance *conformance,
       return conformance;
     }
     // And... even if it isn't conditional, we still don't currently support
-    // @objc protocols in extensions.
+    // @objc protocols in extensions of Swift generic classes, because there's
+    // no stable Objective-C class object to install the protocol conformance
+    // category onto.
     if (isa<ExtensionDecl>(DC)) {
       if (auto genericT = T->getGenericAncestor()) {
-        auto isSubclass = !genericT->isEqual(T);
-        auto genericTIsGeneric = (bool)genericT->getAnyGeneric()->getGenericParams();
-        TC.diagnose(ComplainLoc, diag::objc_protocol_in_generic_extension, T,
-                    ProtoType, isSubclass, genericTIsGeneric);
-        conformance->setInvalid();
-        return conformance;
+        if (!cast<ClassDecl>(genericT->getAnyNominal())
+               ->usesObjCGenericsModel()) {
+          auto isSubclass = !genericT->isEqual(T);
+          auto genericTIsGeneric = (bool)genericT->getAnyGeneric()
+                                                 ->getGenericParams();
+          TC.diagnose(ComplainLoc, diag::objc_protocol_in_generic_extension, T,
+                      ProtoType, isSubclass, genericTIsGeneric);
+          conformance->setInvalid();
+          return conformance;
+        }
       }
     }
   }
@@ -1654,7 +1660,7 @@ static Type getTypeForDisplay(ModuleDecl *module, ValueDecl *decl) {
       auto sigWithoutReqts
         = GenericSignature::get(genericFn->getGenericParams(), {});
       return GenericFunctionType::get(sigWithoutReqts,
-                                      resultFn->getInput(),
+                                      resultFn->getParams(),
                                       resultFn->getResult(),
                                       resultFn->getExtInfo());
     }
@@ -2178,9 +2184,7 @@ void ConformanceChecker::recordTypeWitness(AssociatedTypeDecl *assocType,
       // a typealias added for an internal protocol shouldn't need to be
       // public---but that can be problematic if the same type conforms to two
       // protocols with different access levels.
-      AccessLevel aliasAccess = nominal->getFormalAccess();
-      aliasAccess = std::max(aliasAccess, AccessLevel::Internal);
-      aliasDecl->setAccess(aliasAccess);
+      aliasDecl->copyFormalAccessFrom(nominal, /*sourceIsParentContext*/true);
 
       if (nominal == DC) {
         nominal->addMember(aliasDecl);
@@ -4026,6 +4030,7 @@ void TypeChecker::checkConformanceRequirements(
   llvm::SetVector<ValueDecl *> globalMissingWitnesses;
   ConformanceChecker checker(*this, conformance, globalMissingWitnesses);
   checker.ensureRequirementsAreSatisfied(/*failUnsubstituted=*/true);
+  checker.diagnoseMissingWitnesses(MissingWitnessDiagnosisKind::ErrorFixIt);
 }
 
 /// Determine the score when trying to match two identifiers together.
@@ -4598,6 +4603,12 @@ void TypeChecker::checkConformancesInContext(DeclContext *dc,
 
     // Complain about the redundant conformance.
 
+    auto currentSig = dc->getGenericSignatureOfContext();
+    auto existingSig = diag.ExistingDC->getGenericSignatureOfContext();
+    auto differentlyConditional = currentSig && existingSig &&
+                                  currentSig->getCanonicalSignature() !=
+                                      existingSig->getCanonicalSignature();
+
     // If we've redundantly stated a conformance for which the original
     // conformance came from the module of the type or the module of the
     // protocol, just warn; we'll pick up the original conformance.
@@ -4609,11 +4620,13 @@ void TypeChecker::checkConformancesInContext(DeclContext *dc,
            extendedNominal->getParentModule()->getName() ||
          existingModule == diag.Protocol->getParentModule())) {
       // Warn about the conformance.
-      diagnose(diag.Loc, diag::redundant_conformance_adhoc,
-               dc->getDeclaredInterfaceType(),
+      auto diagID = differentlyConditional
+                        ? diag::redundant_conformance_adhoc_conditional
+                        : diag::redundant_conformance_adhoc;
+      diagnose(diag.Loc, diagID, dc->getDeclaredInterfaceType(),
                diag.Protocol->getName(),
                existingModule->getName() ==
-                 extendedNominal->getParentModule()->getName(),
+                   extendedNominal->getParentModule()->getName(),
                existingModule->getName());
 
       // Complain about any declarations in this extension whose names match
@@ -4644,8 +4657,10 @@ void TypeChecker::checkConformancesInContext(DeclContext *dc,
         }
       }
     } else {
-      diagnose(diag.Loc, diag::redundant_conformance,
-               dc->getDeclaredInterfaceType(),
+      auto diagID = differentlyConditional
+                        ? diag::redundant_conformance_conditional
+                        : diag::redundant_conformance;
+      diagnose(diag.Loc, diagID, dc->getDeclaredInterfaceType(),
                diag.Protocol->getName());
     }
 
@@ -4933,6 +4948,7 @@ void TypeChecker::resolveTypeWitness(
     checker.resolveTypeWitnesses();
   else
     checker.resolveSingleTypeWitness(assocType);
+  checker.diagnoseMissingWitnesses(MissingWitnessDiagnosisKind::ErrorFixIt);
 }
 
 void TypeChecker::resolveWitness(const NormalProtocolConformance *conformance,
@@ -4943,6 +4959,7 @@ void TypeChecker::resolveWitness(const NormalProtocolConformance *conformance,
                        const_cast<NormalProtocolConformance*>(conformance),
                        MissingWitnesses);
   checker.resolveSingleWitness(requirement);
+  checker.diagnoseMissingWitnesses(MissingWitnessDiagnosisKind::ErrorFixIt);
 }
 
 ValueDecl *TypeChecker::deriveProtocolRequirement(DeclContext *DC,

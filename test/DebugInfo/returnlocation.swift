@@ -185,10 +185,9 @@ public class Class1 {
   public required init?() {
     print("hello")
     // CHECK_INIT: call {{.*}}@"$Ss5print_9separator10terminatoryypd_S2StF"{{.*}}, !dbg [[printLoc:![0-9]+]]
-    // CHECK_INIT-NEXT: call void @swift_bridgeObjectRelease{{.*}}, !dbg [[retnLoc:![0-9]+]]
-    // CHECK_INIT: br label {{.*}}, !dbg [[retnLoc]]
+    // CHECK_INIT: br label {{.*}}, !dbg [[retnLoc:![0-9]+]]
 
-    // CHECK_INIT: [[printLoc]] = !DILocation(line: [[@LINE-5]]
+    // CHECK_INIT: [[printLoc]] = !DILocation(line: [[@LINE-4]]
     // CHECK_INIT: [[retnLoc]] = !DILocation(line: [[@LINE+1]]
     return nil
   }

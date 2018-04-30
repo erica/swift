@@ -101,6 +101,8 @@ static Address createPointerSizedGEP(IRGenFunction &IGF,
 }
 
 void IRGenModule::setTrueConstGlobal(llvm::GlobalVariable *var) {
+  disableAddressSanitizer(*this, var);
+  
   switch (TargetInfo.OutputObjectFormat) {
   case llvm::Triple::UnknownObjectFormat:
     llvm_unreachable("unknown object format");
@@ -223,10 +225,10 @@ namespace {
       
       for (auto param : canSig->getGenericParams()) {
         // Currently, there are only type parameters. The parameter is a key
-        // argument if it hasn't been grounded by a same-type constraint.
+        // argument if it's canonical in its generic context.
         asImpl().addGenericParameter(GenericParamKind::Type,
-                               /*key argument*/ !canSig->isConcreteType(param),
-                               /*extra argument*/ false);
+                 /*key argument*/ canSig->isCanonicalTypeInContext(param),
+                 /*extra argument*/ false);
       }
       
       // Pad the structure up to four bytes for the following requirements.
@@ -363,8 +365,8 @@ namespace {
     }
     
     void addExtendedContext() {
-      auto string = getTypeRef(IGM,
-                               E->getSelfInterfaceType()->getCanonicalType());
+      auto string = IGM.getTypeRef(
+          E->getSelfInterfaceType()->getCanonicalType());
       B.addRelativeAddress(string);
     }
     
@@ -2422,6 +2424,8 @@ void irgen::emitClassMetadata(IRGenModule &IGM, ClassDecl *classDecl,
     IGM.addObjCClass(var,
               classDecl->getAttrs().hasAttribute<ObjCNonLazyRealizationAttr>());
   }
+
+  IGM.IRGen.noteUseOfAnyParentTypeMetadata(classDecl);
 }
 
 llvm::Value *IRGenFunction::emitInvariantLoad(Address address,
@@ -2818,6 +2822,19 @@ void irgen::emitStructMetadata(IRGenModule &IGM, StructDecl *structDecl) {
 
   IGM.defineTypeMetadata(declaredType, isIndirect, isPattern,
                          canBeConstant, init.finishAndCreateFuture());
+
+  IGM.IRGen.noteUseOfAnyParentTypeMetadata(structDecl);
+}
+
+void IRGenerator::noteUseOfAnyParentTypeMetadata(NominalTypeDecl *type) {
+  // If this is a nested type we also potentially might need the outer types.
+  auto *declCtxt = type->getDeclContext();
+  auto *parentNominalDecl =
+    declCtxt->getAsNominalTypeOrNominalTypeExtensionContext();
+  if (!parentNominalDecl)
+    return;
+
+  noteUseOfTypeMetadata(parentNominalDecl);
 }
 
 // Enums
@@ -3022,6 +3039,8 @@ void irgen::emitEnumMetadata(IRGenModule &IGM, EnumDecl *theEnum) {
   
   IGM.defineTypeMetadata(declaredType, isIndirect, isPattern,
                          canBeConstant, init.finishAndCreateFuture());
+
+  IGM.IRGen.noteUseOfAnyParentTypeMetadata(theEnum);
 }
 
 llvm::Value *IRGenFunction::emitObjCSelectorRefLoad(StringRef selector) {
@@ -3719,6 +3738,7 @@ void IRGenModule::emitProtocolDecl(ProtocolDecl *protocol) {
   auto var = cast<llvm::GlobalVariable>(
           getAddrOfProtocolDescriptor(protocol, init.finishAndCreateFuture()));
   var->setConstant(true);
+  disableAddressSanitizer(*this, var);
 
   // Note that we emitted this protocol.
   SwiftProtocols.push_back(protocol);
@@ -3838,7 +3858,7 @@ GenericRequirementsMetadata irgen::addGenericRequirements(
 
       auto flags = GenericRequirementFlags(abiKind, false, false);
       auto typeName =
-        getTypeRef(IGM, requirement.getSecondType()->getCanonicalType());
+        IGM.getTypeRef(requirement.getSecondType()->getCanonicalType());
 
       addGenericRequirement(IGM, B, metadata, sig, flags,
                             requirement.getFirstType(),

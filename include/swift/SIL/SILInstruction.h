@@ -1755,6 +1755,13 @@ public:
 
   SILValue getCallee() const { return getAllOperands()[Callee].get(); }
 
+  /// Gets the origin of the callee by looking through function type conversions
+  /// until we find a function_ref, partial_apply, or unrecognized value.
+  ///
+  /// This is defined out of line to work around incomplete definition
+  /// issues. It is at the bottom of the file.
+  SILValue getCalleeOrigin() const;
+
   /// Gets the referenced function by looking through partial apply,
   /// convert_function, and thin to thick function until we find a function_ref.
   ///
@@ -3995,13 +4002,18 @@ class ConvertEscapeToNoEscapeInst final
   friend SILBuilder;
 
   bool lifetimeGuaranteed;
+  bool isEscaped; // Even if we can analyze this
+                        // instruction the user might have
+                        // escaped it.
 
   ConvertEscapeToNoEscapeInst(SILDebugLocation DebugLoc, SILValue Operand,
                               ArrayRef<SILValue> TypeDependentOperands,
-                              SILType Ty, bool isLifetimeGuaranteed)
+                              SILType Ty, bool isEscapedByUser,
+                              bool isLifetimeGuaranteed)
       : UnaryInstructionWithTypeDependentOperandsBase(
             DebugLoc, Operand, TypeDependentOperands, Ty),
-        lifetimeGuaranteed(isLifetimeGuaranteed) {
+        lifetimeGuaranteed(isLifetimeGuaranteed),
+        isEscaped(isEscapedByUser) {
     assert(!Operand->getType().castTo<SILFunctionType>()->isNoEscape());
     assert(Ty.castTo<SILFunctionType>()->isNoEscape());
   }
@@ -4009,11 +4021,17 @@ class ConvertEscapeToNoEscapeInst final
   static ConvertEscapeToNoEscapeInst *
   create(SILDebugLocation DebugLoc, SILValue Operand, SILType Ty,
          SILFunction &F, SILOpenedArchetypesState &OpenedArchetypes,
-         bool lifetimeGuaranteed);
+         bool isEscapedByUser, bool lifetimeGuaranteed);
 public:
   bool isLifetimeGuaranteed() const {
     return lifetimeGuaranteed;
   }
+
+  bool isEscapedByUser() const {
+    return isEscaped;
+  }
+
+  void setEscapedByUser(bool isEscaped = true) { this->isEscaped = isEscaped; }
 };
 
 /// ThinFunctionToPointerInst - Convert a thin function pointer to a
@@ -7582,6 +7600,12 @@ public:
     FOREACH_IMPL_RETURN(getCallee());
   }
 
+  /// Return the callee value by looking through function conversions until we
+  /// find a function_ref, partial_apply, or unrecognized callee value.
+  SILValue getCalleeOrigin() const {
+    FOREACH_IMPL_RETURN(getCalleeOrigin());
+  }
+
   /// Gets the referenced function by looking through partial apply,
   /// convert_function, and thin to thick function until we find a function_ref.
   SILFunction *getCalleeFunction() const {
@@ -7858,29 +7882,37 @@ public:
 // PartialApplyInst being defined, but PartialApplyInst is a subclass of
 // ApplyInstBase, so we can not place ApplyInstBase after it.
 template <class Impl, class Base>
-SILFunction *ApplyInstBase<Impl, Base, false>::getCalleeFunction() const {
+SILValue ApplyInstBase<Impl, Base, false>::getCalleeOrigin() const {
   SILValue Callee = getCallee();
-
   while (true) {
-    if (auto *FRI = dyn_cast<FunctionRefInst>(Callee)) {
-      return FRI->getReferencedFunction();
-    }
-
-    if (auto *PAI = dyn_cast<PartialApplyInst>(Callee)) {
-      Callee = PAI->getCallee();
-      continue;
-    }
-
     if (auto *TTTFI = dyn_cast<ThinToThickFunctionInst>(Callee)) {
       Callee = TTTFI->getCallee();
       continue;
     }
-
     if (auto *CFI = dyn_cast<ConvertFunctionInst>(Callee)) {
       Callee = CFI->getConverted();
       continue;
     }
+    if (auto *CETN = dyn_cast<ConvertEscapeToNoEscapeInst>(Callee)) {
+      Callee = CETN->getOperand();
+      continue;
+    }
+    return Callee;
+  }
+}
 
+template <class Impl, class Base>
+SILFunction *ApplyInstBase<Impl, Base, false>::getCalleeFunction() const {
+  SILValue Callee = getCalleeOrigin();
+
+  while (true) {
+    if (auto *FRI = dyn_cast<FunctionRefInst>(Callee))
+      return FRI->getReferencedFunction();
+
+    if (auto *PAI = dyn_cast<PartialApplyInst>(Callee)) {
+      Callee = PAI->getCalleeOrigin();
+      continue;
+    }
     return nullptr;
   }
 }

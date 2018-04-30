@@ -1,5 +1,5 @@
-// RUN: %target-typecheck-verify-swift -swift-version 3 -enable-resilience -enable-nonfrozen-enum-exhaustivity-diagnostics
-// RUN: %target-typecheck-verify-swift -swift-version 4 -enable-resilience -enable-nonfrozen-enum-exhaustivity-diagnostics
+// RUN: %target-typecheck-verify-swift -swift-version 3 -enable-resilience
+// RUN: %target-typecheck-verify-swift -swift-version 4 -enable-resilience
 
 func foo(a: Int?, b: Int?) -> Int {
   switch (a, b) {
@@ -473,6 +473,21 @@ func quiteBigEnough() -> Bool {
   case (.case10, _): return true
   }
 
+  switch (OverlyLargeSpaceEnum.case1, OverlyLargeSpaceEnum.case2) { // expected-error {{switch must be exhaustive}}
+  case (.case0, _): return true
+  case (.case1, _): return true
+  case (.case2, _): return true
+  case (.case3, _): return true
+  case (.case4, _): return true
+  case (.case5, _): return true
+  case (.case6, _): return true
+  case (.case7, _): return true
+  case (.case8, _): return true
+  case (.case9, _): return true
+  case (.case10, _): return true
+  @unknown default: return false // expected-note {{remove '@unknown' to handle remaining values}} {{3-12=}}
+  }
+
 
   // No diagnostic
   switch (OverlyLargeSpaceEnum.case1, OverlyLargeSpaceEnum.case2) {
@@ -525,6 +540,10 @@ func quiteBigEnough() -> Bool {
   case .one: return true
   case .two: return true
   case .three: return true
+  }
+
+  // Make sure we haven't just stopped emitting diagnostics.
+  switch OverlyLargeSpaceEnum.case1 { // expected-error {{switch must be exhaustive}} expected-note 12 {{add missing case}}
   }
 }
 
@@ -821,11 +840,11 @@ public enum NonExhaustivePayload {
 // case.
 @inlinable
 public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePayload, for interval: TemporalProxy, flag: Bool) {
-  switch value { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b'}} {{none}} expected-note {{handle unknown values using "@unknown default"}} {{none}}
+  switch value { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b'}} {{none}}
   case .a: break
   }
 
-  switch value { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{handle unknown values using "@unknown default"}} {{3-3=@unknown default:\n<#fatalError#>()\n}}
+  switch value { // no-warning
   case .a: break
   case .b: break
   }
@@ -857,7 +876,7 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   }
 
   // Test being part of other spaces.
-  switch value as Optional { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.some(_)'}}
+  switch value as Optional { // no-warning
   case .a?: break
   case .b?: break
   case nil: break
@@ -875,7 +894,7 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   @unknown case _: break
   } // no-warning
 
-  switch (value, flag) { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '(_, false)'}}
+  switch (value, flag) { // no-warning
   case (.a, _): break
   case (.b, false): break
   case (_, true): break
@@ -888,7 +907,7 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   @unknown case _: break
   } // no-warning
 
-  switch (flag, value) { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '(false, _)'}}
+  switch (flag, value) { // no-warning
   case (_, .a): break
   case (false, .b): break
   case (true, _): break
@@ -901,7 +920,7 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   @unknown case _: break
   } // no-warning
 
-  switch (value, value) { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '(_, _)'}}
+  switch (value, value) { // no-warning
   case (.a, _), (_, .a): break
   case (.b, _), (_, .b): break
   }
@@ -913,21 +932,13 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   } // no-warning
 
   // Test interaction with @_downgrade_exhaustivity_check.
-  switch (value, interval) { // expected-warning {{switch must be exhaustive}} {{none}}
-  // expected-note@-1 {{add missing case: '(_, .milliseconds(_))'}}
-  // expected-note@-2 {{add missing case: '(_, .microseconds(_))'}}
-  // expected-note@-3 {{add missing case: '(_, .nanoseconds(_))'}}
-  // expected-note@-4 {{add missing case: '(_, .never)'}}
+  switch (value, interval) { // no-warning
   case (_, .seconds): break
   case (.a, _): break
   case (.b, _): break
   }
 
-  switch (value, interval) { // expected-warning {{switch must be exhaustive}} {{none}}
-  // expected-note@-1 {{add missing case: '(_, .seconds(_))'}}
-  // expected-note@-2 {{add missing case: '(_, .milliseconds(_))'}}
-  // expected-note@-3 {{add missing case: '(_, .microseconds(_))'}}
-  // expected-note@-4 {{add missing case: '(_, .nanoseconds(_))'}}
+  switch (value, interval) { // no-warning
   case (_, .never): break
   case (.a, _): break
   case (.b, _): break
@@ -935,11 +946,11 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
 
 
   // Test payloaded enums.
-  switch payload { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b(_)'}} {{none}} expected-note {{handle unknown values using "@unknown default"}} {{none}}
+  switch payload { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b(_)'}} {{none}}
   case .a: break
   }
 
-  switch payload { // expected-warning {{switch must be exhaustive}} {{none}} expected-note {{handle unknown values using "@unknown default"}} {{3-3=@unknown default:\n<#fatalError#>()\n}}
+  switch payload { // no-warning
   case .a: break
   case .b: break
   }
@@ -961,7 +972,7 @@ public func testNonExhaustive(_ value: NonExhaustive, _ payload: NonExhaustivePa
   @unknown case _: break
   }
 
-  switch payload { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b(true)'}} {{none}} expected-note {{handle unknown values using "@unknown default"}} {{none}}
+  switch payload { // expected-error {{switch must be exhaustive}} {{none}} expected-note {{add missing case: '.b(true)'}} {{none}}
   case .a: break
   case .b(false): break
   }

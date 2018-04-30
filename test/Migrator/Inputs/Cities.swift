@@ -36,6 +36,21 @@ public func globalCityPointerTaker(_ c : UnsafePointer<Cities>, _ p : Int, _ q: 
 
 public class Container {
   public var Value: String = ""
+  public var attrDict: [String: Any] = [:]
+  public var attrArr: [String] = []
+  public var optionalAttrDict: [String: Any]? = nil
   public func addingAttributes(_ input: [String: Any]) {}
   public func adding(attributes: [String: Any]) {}
+  public func adding(optionalAttributes: [String: Any]?) {}
+  public init(optionalAttributes: [String: Any]?) {}
+  public func adding(attrArray: [String]) {}
+  public init(optionalAttrArray: [String]?) {}
+  public func add(single: String) {}
+  public func add(singleOptional: String?) {}
+  public func getAttrArray() -> [String] { return [] }
+  public func getOptionalAttrArray() -> [String]? { return [] }
+  public func getAttrDictionary() -> [String: Any] { return [:] }
+  public func getOptionalAttrDictionary() -> [String: Any]? { return nil }
+  public func getSingleAttr() -> String { return "" }
+  public func getOptionalSingleAttr() -> String? { return nil }
 }

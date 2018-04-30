@@ -62,6 +62,9 @@ static llvm::cl::opt<bool> VerifyDIHoles(
                               "verify-di-holes",
                               llvm::cl::init(true));
 
+static llvm::cl::opt<bool> SkipConvertEscapeToNoescapeAttributes(
+    "verify-skip-convert-escape-to-noescape-attributes", llvm::cl::init(false));
+
 // The verifier is basically all assertions, so don't compile it with NDEBUG to
 // prevent release builds from triggering spurious unused variable warnings.
 
@@ -1418,14 +1421,17 @@ public:
 
     SILFunction *RefF = FRI->getReferencedFunction();
 
-    // A direct reference to a shared_external declaration is an error; we
-    // should have deserialized a body.
-    if (RefF->isExternalDeclaration()) {
-      require(SingleFunction ||
-              !hasSharedVisibility(RefF->getLinkage()) ||
-              RefF->hasForeignBody(),
-              "external declarations of SILFunctions with shared visibility is "
-              "not allowed");
+    // In canonical SIL, direct reference to a shared_external declaration
+    // is an error; we should have deserialized a body. In raw SIL, we may
+    // not have deserialized the body yet.
+    if (F.getModule().getStage() >= SILStage::Canonical) {
+      if (RefF->isExternalDeclaration()) {
+        require(SingleFunction ||
+                !hasSharedVisibility(RefF->getLinkage()) ||
+                RefF->hasForeignBody(),
+                "external declarations of SILFunctions with shared visibility is "
+                "not allowed");
+      }
     }
 
     // A direct reference to a non-public or shared but not fragile function
@@ -1994,8 +2000,12 @@ public:
     SILType caseTy =
       UI->getOperand()->getType().getEnumElementType(UI->getElement(),
                                                     F.getModule());
-    requireSameType(caseTy, UI->getType(),
-            "InitEnumDataAddrInst result does not match type of enum case");
+
+    if (UI->getModule().getStage() != SILStage::Lowered) {
+      requireSameType(
+          caseTy, UI->getType(),
+          "InitEnumDataAddrInst result does not match type of enum case");
+    }
   }
 
   void checkUncheckedEnumDataInst(UncheckedEnumDataInst *UI) {
@@ -2013,8 +2023,11 @@ public:
     SILType caseTy =
       UI->getOperand()->getType().getEnumElementType(UI->getElement(),
                                                     F.getModule());
-    require(caseTy == UI->getType(),
-            "UncheckedEnumData result does not match type of enum case");
+
+    if (UI->getModule().getStage() != SILStage::Lowered) {
+      require(caseTy == UI->getType(),
+              "UncheckedEnumData result does not match type of enum case");
+    }
   }
 
   void checkUncheckedTakeEnumDataAddrInst(UncheckedTakeEnumDataAddrInst *UI) {
@@ -2032,8 +2045,11 @@ public:
     SILType caseTy =
       UI->getOperand()->getType().getEnumElementType(UI->getElement(),
                                                     F.getModule());
-    require(caseTy == UI->getType(),
-            "UncheckedTakeEnumDataAddrInst result does not match type of enum case");
+
+    if (UI->getModule().getStage() != SILStage::Lowered) {
+      require(caseTy == UI->getType(), "UncheckedTakeEnumDataAddrInst result "
+                                       "does not match type of enum case");
+    }
   }
 
   void checkInjectEnumAddrInst(InjectEnumAddrInst *IUAI) {
@@ -3520,6 +3536,18 @@ public:
     requireABICompatibleFunctionTypes(
         opTI, resTI->getWithExtInfo(resTI->getExtInfo().withNoEscape(false)),
         "convert_escape_to_noescape cannot change function ABI");
+
+    // After mandatory passes convert_escape_to_noescape should not have the
+    // '[not_guaranteed]' or '[escaped]' attributes.
+    if (!SkipConvertEscapeToNoescapeAttributes &&
+        F.getModule().getStage() != SILStage::Raw) {
+      require(!ICI->isEscapedByUser(),
+              "convert_escape_to_noescape [escaped] not "
+              "allowed after mandatory passes");
+      require(ICI->isLifetimeGuaranteed(),
+              "convert_escape_to_noescape [not_guaranteed] not "
+              "allowed after mandatory passes");
+    }
   }
 
   void checkThinFunctionToPointerInst(ThinFunctionToPointerInst *CI) {

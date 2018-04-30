@@ -81,6 +81,9 @@ def verify_generic_signatures : Separate<["-"], "verify-generic-signatures">,
   MetaVarName<"<module-name>">,
   HelpText<"Verify the generic signatures in the given module">;
 
+def verify_syntax_tree : Flag<["-"], "verify-syntax-tree">,
+  HelpText<"Verify that no unknown nodes exist in the libSyntax tree">;
+
 def show_diagnostics_after_fatal : Flag<["-"], "show-diagnostics-after-fatal">,
   HelpText<"Keep emitting subsequent diagnostics after a fatal error">;
 
@@ -242,9 +245,6 @@ def stack_promotion_checks : Flag<["-"], "emit-stack-promotion-checks">,
 def stack_promotion_limit : Separate<["-"], "stack-promotion-limit">,
   HelpText<"Limit the size of stack promoted objects to the provided number "
            "of bytes.">;
-
-def disable_sil_linking : Flag<["-"], "disable-sil-linking">,
-  HelpText<"Don't link SIL functions">;
 
 def dump_clang_diagnostics : Flag<["-"], "dump-clang-diagnostics">,
   HelpText<"Dump Clang diagnostics to stderr">;
@@ -452,6 +452,9 @@ def enable_resilience : Flag<["-"], "enable-resilience">,
 
 def enable_class_resilience : Flag<["-"], "enable-class-resilience">,
    HelpText<"Enable resilient layout for classes containing resilient value types">;
+
+def enable_resilience_bypass : Flag<["-"], "enable-resilience-bypass">,
+   HelpText<"Completely bypass resilience when accessing types in resilient frameworks">;
 
 def group_info_path : Separate<["-"], "group-info-path">,
   HelpText<"The path to collect the group information of the compiled module">;
