@@ -2294,6 +2294,7 @@ void PrintAST::printOneParameter(const ParamDecl *param,
 
       switch (param->getDefaultArgumentKind()) {
       case DefaultArgumentKind::File:
+      case DefaultArgumentKind::FileName:
       case DefaultArgumentKind::Line:
       case DefaultArgumentKind::Column:
       case DefaultArgumentKind::Function:

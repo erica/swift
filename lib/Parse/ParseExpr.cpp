@@ -1080,6 +1080,8 @@ getMagicIdentifierLiteralKind(tok Kind) {
   case tok::kw___FILE__:
   case tok::pound_file:
     return MagicIdentifierLiteralExpr::Kind::File;
+  case tok::pound_fileName:
+    return MagicIdentifierLiteralExpr::Kind::FileName;
   case tok::kw___FUNCTION__:
   case tok::pound_function:
     return MagicIdentifierLiteralExpr::Kind::Function;
@@ -1454,6 +1456,7 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
 ///     true
 ///     false
 ///     #file
+///     #fileName
 ///     #line
 ///     #column
 ///     #function
@@ -1544,6 +1547,7 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
   }
   case tok::pound_column:
   case tok::pound_file:
+  case tok::pound_fileName:
   case tok::pound_function:
   case tok::pound_line:
   case tok::pound_dsohandle: {
@@ -1551,6 +1555,7 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
     switch (Tok.getKind()) {
     case tok::pound_column: SKind = SyntaxKind::PoundColumnExpr; break;
     case tok::pound_file: SKind = SyntaxKind::PoundFileExpr; break;
+    case tok::pound_fileName: SKind = SyntaxKind::PoundFileNameExpr; break;
     case tok::pound_function: SKind = SyntaxKind::PoundFunctionExpr; break;
     // FIXME: #line was renamed to #sourceLocation
     case tok::pound_line: SKind = SyntaxKind::PoundLineExpr; break;

@@ -1005,7 +1005,7 @@ public:
 class MagicIdentifierLiteralExpr : public LiteralExpr {
 public:
   enum Kind : unsigned {
-    File, Line, Column, Function, DSOHandle
+    File, FileName, Line, Column, Function, DSOHandle
   };
 private:
   SourceLoc Loc;
@@ -1032,6 +1032,7 @@ public:
   bool isString() const {
     switch (getKind()) {
     case File:
+    case FileName:
     case Function:
       return true;
     case Line:

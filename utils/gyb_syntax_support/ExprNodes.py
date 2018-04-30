@@ -127,6 +127,12 @@ EXPR_NODES = [
              Child('PoundFile', kind='PoundFileToken'),
          ]),
 
+    # A #fileName expression.
+    Node('PoundFileNameExpr', kind='Expr',
+         children=[
+             Child('PoundFileName', kind='PoundFileNameToken'),
+         ]),
+
     # A #function expression.
     Node('PoundFunctionExpr', kind='Expr',
          children=[

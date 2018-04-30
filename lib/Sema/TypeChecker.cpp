@@ -131,6 +131,7 @@ ProtocolDecl *TypeChecker::getLiteralProtocol(Expr *expr) {
   if (auto E = dyn_cast<MagicIdentifierLiteralExpr>(expr)) {
     switch (E->getKind()) {
     case MagicIdentifierLiteralExpr::File:
+    case MagicIdentifierLiteralExpr::FileName:
     case MagicIdentifierLiteralExpr::Function:
       return getProtocol(expr->getLoc(),
                          KnownProtocolKind::ExpressibleByStringLiteral);

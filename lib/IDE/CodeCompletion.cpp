@@ -2259,6 +2259,7 @@ public:
           return !includeDefaultArgs;
 
         case DefaultArgumentKind::File:
+        case DefaultArgumentKind::FileName:
         case DefaultArgumentKind::Line:
         case DefaultArgumentKind::Column:
         case DefaultArgumentKind::Function:
@@ -4925,6 +4926,7 @@ static void addExprKeywords(CodeCompletionResultSink &Sink) {
   // Swift.StringLiteralType type.
   AddKeyword("#function", "String", CodeCompletionKeywordKind::pound_function);
   AddKeyword("#file", "String", CodeCompletionKeywordKind::pound_file);
+  AddKeyword("#fileName", "String", CodeCompletionKeywordKind::pound_fileName);
   // Same: Swift.IntegerLiteralType.
   AddKeyword("#line", "Int", CodeCompletionKeywordKind::pound_line);
   AddKeyword("#column", "Int", CodeCompletionKeywordKind::pound_column);

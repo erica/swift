@@ -38,6 +38,8 @@ enum class DefaultArgumentKind : uint8_t {
   Inherited,
   /// The #file default argument, which is expanded at the call site.
   File,
+  /// The #fileName default argument, which is expanded at the call site.
+  FileName,
   /// The #line default argument, which is expanded at the call site.
   Line,
   /// The #column default argument, which is expanded at the call site.

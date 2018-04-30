@@ -26,6 +26,7 @@ StringRef swift::getDefaultArgumentSpelling(DefaultArgumentKind kind) {
   case DefaultArgumentKind::Inherited:
     return StringRef();
   case DefaultArgumentKind::File:      return "#file";
+  case DefaultArgumentKind::FileName:  return "#fileName";
   case DefaultArgumentKind::Line:      return "#line";
   case DefaultArgumentKind::Column:    return "#column";
   case DefaultArgumentKind::Function:  return "#function";

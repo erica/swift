@@ -977,6 +977,7 @@ void SILGenModule::emitDefaultArgGenerator(SILDeclRef constant, Expr *arg,
 
   case DefaultArgumentKind::Column:
   case DefaultArgumentKind::File:
+  case DefaultArgumentKind::FileName:
   case DefaultArgumentKind::Line:
   case DefaultArgumentKind::Function:
   case DefaultArgumentKind::DSOHandle:

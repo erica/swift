@@ -35,6 +35,7 @@
 #include "swift/SIL/PrettyStackTrace.h"
 #include "swift/SIL/SILArgument.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/Path.h"
 
 using namespace swift;
 using namespace Lowering;
@@ -4615,6 +4616,18 @@ RValue SILGenFunction::emitLiteral(LiteralExpr *literal, SGFContext C) {
       if (loc.isValid())
         value = ctx.SourceMgr.getBufferIdentifierForLoc(loc);
       builtinLiteralArgs = emitStringLiteral(*this, literal, value, C,
+                                             magicLiteral->getStringEncoding());
+      builtinInit = magicLiteral->getBuiltinInitializer();
+      init = magicLiteral->getInitializer();
+      break;
+    }
+
+    case MagicIdentifierLiteralExpr::FileName: {
+      StringRef value = "";
+      if (loc.isValid())
+        value = ctx.SourceMgr.getBufferIdentifierForLoc(loc);
+      StringRef base_filename = llvm::sys::path::filename(value);
+      builtinLiteralArgs = emitStringLiteral(*this, literal, base_filename, C,
                                              magicLiteral->getStringEncoding());
       builtinInit = magicLiteral->getBuiltinInitializer();
       init = magicLiteral->getInitializer();

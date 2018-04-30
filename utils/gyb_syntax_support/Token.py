@@ -102,6 +102,8 @@ SYNTAX_TOKENS = [
           text='#sourceLocation', is_keyword=True),
     Token('PoundFile', 'pound_file', text='#file',
           is_keyword=True),
+    Token('PoundFileName', 'pound_fileName', text='#fileName',
+          is_keyword=True),
     Token('PoundLine', 'pound_line', text='#line',
           is_keyword=True),
     Token('PoundColumn', 'pound_column', text='#column',

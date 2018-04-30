@@ -2455,6 +2455,7 @@ namespace {
     Expr *visitMagicIdentifierLiteralExpr(MagicIdentifierLiteralExpr *expr) {
       switch (expr->getKind()) {
       case MagicIdentifierLiteralExpr::File:
+      case MagicIdentifierLiteralExpr::FileName:
       case MagicIdentifierLiteralExpr::Function:
         return handleStringLiteralExpr(expr);
 
@@ -5066,6 +5067,12 @@ getCallerDefaultArg(ConstraintSystem &cs, DeclContext *dc,
                               /*implicit=*/true);
     break;
     
+  case DefaultArgumentKind::FileName:
+    init = new (tc.Context) MagicIdentifierLiteralExpr(
+                              MagicIdentifierLiteralExpr::FileName, loc,
+                              /*implicit=*/true);
+    break;
+
   case DefaultArgumentKind::Line:
     init = new (tc.Context) MagicIdentifierLiteralExpr(
                               MagicIdentifierLiteralExpr::Line, loc,
